@@ -1,0 +1,28 @@
+{
+  "expo": {
+    "name": "StudyFlow",
+    "slug": "studyflow",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "studyflow",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#0F8B8D"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.studyflow.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F8B8D"
+      },
+      "package": "com.studyflow.app"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-haptics"
+    ]
+  }
+}

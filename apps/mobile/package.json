@@ -1,0 +1,17 @@
+{
+  "name": "@studyflow/mobile",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "expo start",
+    "lint": "biome check src/",
+    "type-check": "echo mobile-type-check-deferred",
+    "clean": "rm -rf .expo node_modules"
+  },
+  "dependencies": {
+    "@studyflow/shared": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}
