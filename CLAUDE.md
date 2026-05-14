@@ -37,6 +37,28 @@ StudyFlow is a cross-platform student productivity app that connects study sessi
 - **Color tokens**: Full 50–950 scale for brand, secondary, accent in `tailwind.config.ts` and `packages/ui/src/tokens.ts`
 - **Logo**: Abstract mark + wordmark (to be generated)
 
+## MANDATORY: Pre-Work Toolkit Review
+**Before starting ANY design, UI, or feature development work on StudyFlow, you MUST:**
+
+1. **Read the App Development Toolkit Research** (`../App_Development_Toolkit_Research.docx`) — covers MCP integrations, frameworks, backend, auth, payments, deployment, testing, and dev tools
+2. **Read the Design & Animation Toolkit Research** (`../Design_Animation_Toolkit_Research.docx`) — covers Motion, Reanimated, GSAP, Rive, Lottie, icons, illustrations, design-to-code pipeline, and the non-negotiable polish checklist
+3. **Read the PRD** (`../StudyFlow_PRD.md`) — user flows, acceptance criteria, success metrics, and scope boundaries
+4. **Read the Brand Identity** (`../StudyFlow_Brand_Identity.docx`) — color psychology, palette specs, typography, logo guidelines, dark mode tokens
+5. **Check connected MCP servers** — Supabase, Vercel, Stripe, Clerk, Sentry, Figma, Notion, Higgsfield are all available
+
+**Why:** These documents represent hours of research into the optimal tools for each layer of the stack. Every feature should leverage the full toolkit — not just the basics. The polish checklist in the Design toolkit is the minimum bar for any UI work.
+
+**Non-Negotiable Polish Checklist (from Design Toolkit):**
+- Every button has a press/hover animation (scale + opacity via Motion)
+- Page transitions use shared layout animations
+- Loading states use skeleton screens with shimmer animations, never spinners
+- Empty states show animated illustrations, not static placeholders
+- Scroll reveals content with staggered fade-up animations
+- Input fields animate focus states (border color, label float, shadow)
+- Toast notifications slide in with spring physics and auto-dismiss
+- Achievement/streak badges use animated state machines
+- Dark mode transitions animate smoothly (color interpolation)
+
 ## Conventions
 - Use `@/` path alias for app-local imports
 - Use `@studyflow/shared`, `@studyflow/db`, `@studyflow/ui` for package imports
