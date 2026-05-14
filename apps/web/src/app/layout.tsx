@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { ClerkProvider } from '@clerk/nextjs';
 import { DM_Sans, Inter } from 'next/font/google';
 import '@/styles/globals.css';
 import { Providers } from './providers';
@@ -28,10 +29,25 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${inter.variable} ${dmSans.variable}`} suppressHydrationWarning>
-      <body>
-        <Providers>{children}</Providers>
-      </body>
-    </html>
+    <ClerkProvider
+      appearance={{
+        variables: {
+          colorPrimary: '#0F8B8D',
+          colorTextOnPrimaryBackground: '#FFFFFF',
+          colorBackground: '#FAFAF9',
+          colorText: '#1C1917',
+          colorInputBackground: '#F5F5F3',
+          colorInputText: '#1C1917',
+          borderRadius: '0.5rem',
+          fontFamily: 'Inter, system-ui, sans-serif',
+        },
+      }}
+    >
+      <html lang="en" className={`${inter.variable} ${dmSans.variable}`} suppressHydrationWarning>
+        <body>
+          <Providers>{children}</Providers>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
