@@ -246,7 +246,7 @@ function StatCard({
         </div>
       </div>
       <p className="mt-4 text-sm font-medium text-surface-500">{title}</p>
-      <p className={`mt-1 font-heading text-2xl font-bold tabular-nums ${s.value}`}>
+      <p className={`mt-1 font-sans text-2xl font-bold tabular-nums ${s.value}`}>
         {value}
       </p>
       <p className="mt-1 text-xs text-surface-400">{subtitle}</p>
@@ -267,13 +267,30 @@ function ContentCard({
   emptyAction: string;
   color: 'brand' | 'secondary';
 }) {
-  const accentColor = color === 'brand' ? 'brand' : 'secondary';
+  const contentStyles = {
+    brand: {
+      headerIconBg: 'bg-brand-100',
+      headerIconColor: 'text-brand-600',
+      emptyIconBg: 'bg-brand-50',
+      emptyIconColor: 'text-brand-400',
+      buttonBg: 'bg-brand-500',
+    },
+    secondary: {
+      headerIconBg: 'bg-secondary-100',
+      headerIconColor: 'text-secondary-600',
+      emptyIconBg: 'bg-secondary-50',
+      emptyIconColor: 'text-secondary-400',
+      buttonBg: 'bg-secondary-500',
+    },
+  };
+
+  const cs = contentStyles[color];
 
   return (
     <div className="rounded-2xl border border-surface-200 bg-white p-6 shadow-soft">
       <div className="flex items-center gap-3">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg bg-${accentColor}-100`}>
-          <Icon className={`h-4 w-4 text-${accentColor}-600`} />
+        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${cs.headerIconBg}`}>
+          <Icon className={`h-4 w-4 ${cs.headerIconColor}`} />
         </div>
         <h2 className="font-heading text-base font-semibold text-surface-900">{title}</h2>
       </div>
@@ -281,7 +298,7 @@ function ContentCard({
       {/* Empty state */}
       <div className="mt-6 flex flex-col items-center justify-center rounded-xl bg-surface-50/50 py-10">
         <motion.div
-          className={`flex h-14 w-14 items-center justify-center rounded-2xl bg-${accentColor}-50 mb-4`}
+          className={`flex h-14 w-14 items-center justify-center rounded-2xl ${cs.emptyIconBg} mb-4`}
           animate={{
             y: [0, -4, 0],
           }}
@@ -291,13 +308,13 @@ function ContentCard({
             ease: 'easeInOut',
           }}
         >
-          <Icon className={`h-7 w-7 text-${accentColor}-400`} />
+          <Icon className={`h-7 w-7 ${cs.emptyIconColor}`} />
         </motion.div>
         <p className="max-w-[240px] text-center text-sm text-surface-400">
           {emptyMessage}
         </p>
         <motion.button
-          className={`mt-4 rounded-lg bg-${accentColor}-500 px-4 py-2 text-sm font-semibold text-white shadow-sm`}
+          className={`mt-4 rounded-lg ${cs.buttonBg} px-4 py-2 text-sm font-semibold text-white shadow-sm`}
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           transition={spring}

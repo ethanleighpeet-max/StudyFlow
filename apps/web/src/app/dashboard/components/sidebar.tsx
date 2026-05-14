@@ -13,6 +13,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { UserButton } from '@clerk/nextjs';
 
 interface NavItemConfig {
   href: string;
@@ -65,9 +66,14 @@ export function Sidebar({ userName, userEmail }: { userName: string; userEmail: 
       {/* User section */}
       <div className="border-t border-surface-100 p-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-secondary-500 text-sm font-semibold text-white shadow-sm">
-            {userName.charAt(0).toUpperCase()}
-          </div>
+          <UserButton
+            afterSignOutUrl="/"
+            appearance={{
+              elements: {
+                avatarBox: 'h-9 w-9',
+              },
+            }}
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-surface-900">{userName}</p>
             <p className="truncate text-xs text-surface-400">{userEmail}</p>
