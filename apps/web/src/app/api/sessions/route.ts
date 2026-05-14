@@ -60,10 +60,11 @@ export async function GET(req: NextRequest) {
     .offset(offset);
 
   // Get total count for pagination
-  const [{ count }] = await db
+  const countResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(studySessions)
     .where(and(...conditions));
+  const count = countResult[0]?.count ?? 0;
 
   return NextResponse.json({
     success: true,
