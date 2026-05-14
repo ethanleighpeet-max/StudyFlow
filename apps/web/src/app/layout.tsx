@@ -29,25 +29,25 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ClerkProvider
-      appearance={{
-        variables: {
-          colorPrimary: '#0F8B8D',
-          colorTextOnPrimaryBackground: '#FFFFFF',
-          colorBackground: '#FAFAF9',
-          colorText: '#1C1917',
-          colorInputBackground: '#F5F5F3',
-          colorInputText: '#1C1917',
-          borderRadius: '0.5rem',
-          fontFamily: 'Inter, system-ui, sans-serif',
-        },
-      }}
-    >
-      <html lang="en" className={`${inter.variable} ${dmSans.variable}`} suppressHydrationWarning>
-        <body>
+    <html lang="en" className={`${inter.variable} ${dmSans.variable}`} suppressHydrationWarning>
+      <body>
+        <ClerkProvider
+          appearance={{
+            variables: {
+              colorPrimary: '#0F8B8D',
+              colorTextOnPrimaryBackground: '#FFFFFF',
+              colorBackground: '#FAFAF9',
+              colorText: '#1C1917',
+              colorInputBackground: '#F5F5F3',
+              colorInputText: '#1C1917',
+              borderRadius: '0.5rem',
+              fontFamily: 'Inter, system-ui, sans-serif',
+            },
+          }}
+        >
           <Providers>{children}</Providers>
-        </body>
-      </html>
-    </ClerkProvider>
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }
