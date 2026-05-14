@@ -61,16 +61,17 @@ export async function GET() {
     .limit(60);
 
   let streak = 0;
-  const today = startOfToday.toISOString().split('T')[0];
+  const todayStr = startOfToday.toISOString().split('T')[0] ?? '';
   const yesterday = new Date(startOfToday);
   yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayStr = yesterday.toISOString().split('T')[0];
+  const yesterdayStr = yesterday.toISOString().split('T')[0] ?? '';
 
   const dayStrings = recentDays.map((d) => d.day);
+  const firstDay = dayStrings[0];
 
   // Streak must start from today or yesterday
-  if (dayStrings[0] === today || dayStrings[0] === yesterdayStr) {
-    let expectedDate = new Date(dayStrings[0] ?? today);
+  if (firstDay !== undefined && (firstDay === todayStr || firstDay === yesterdayStr)) {
+    let expectedDate = new Date(firstDay);
     for (const d of dayStrings) {
       const current = new Date(d);
       const diffDays = Math.round(
