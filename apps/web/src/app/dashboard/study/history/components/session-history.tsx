@@ -10,7 +10,7 @@ import {
   Calendar,
   Search,
   Timer,
-  Infinity,
+  Infinity as InfinityIcon,
   ChevronLeft,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -53,7 +53,7 @@ function formatDate(iso: string): string {
 const timerModeIcons: Record<string, typeof Timer> = {
   pomodoro: Timer,
   custom: Clock,
-  'open-ended': Infinity,
+  'open-ended': InfinityIcon,
 };
 
 export function SessionHistory() {

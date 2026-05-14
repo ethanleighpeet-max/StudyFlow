@@ -8,7 +8,7 @@ import {
   Square,
   Timer,
   Clock,
-  Infinity,
+  Infinity as InfinityIcon,
   Plus,
   BookOpen,
   Target,
@@ -31,7 +31,7 @@ interface Subject {
 const TIMER_MODES = [
   { mode: 'pomodoro' as const, label: 'Pomodoro', icon: Timer, desc: '25 min focus' },
   { mode: 'custom' as const, label: 'Custom', icon: Clock, desc: 'Set your time' },
-  { mode: 'open-ended' as const, label: 'Open-Ended', icon: Infinity, desc: 'No limit' },
+  { mode: 'open-ended' as const, label: 'Open-Ended', icon: InfinityIcon, desc: 'No limit' },
 ];
 
 const CUSTOM_DURATIONS = [15, 30, 45, 60, 90];
