@@ -16,6 +16,7 @@
   "dependencies": {
     "@studyflow/shared": "*",
     "@studyflow/db": "*",
+    "drizzle-orm": "^0.38.0",
     "@studyflow/ui": "*",
     "next": "^15.1.0",
     "react": "^19.0.0",

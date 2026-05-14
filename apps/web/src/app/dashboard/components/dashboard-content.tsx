@@ -1,6 +1,7 @@
 'use client';
 
 import { motion } from 'motion/react';
+import Link from 'next/link';
 import {
   Clock,
   Brain,
@@ -14,6 +15,14 @@ import {
   Sun,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+
+interface DashboardStats {
+  todayMinutes: number;
+  todaySessions: number;
+  avgFocusRating: number;
+  streak: number;
+  weeklyMinutes: number;
+}
 
 // Spring physics from design tokens
 const spring = { type: 'spring' as const, stiffness: 400, damping: 17 };
@@ -36,9 +45,39 @@ const item = {
   show: { opacity: 1, y: 0, transition: gentleSpring },
 };
 
-export function DashboardContent({ firstName }: { firstName: string }) {
+export function DashboardContent({
+  firstName,
+  initialStats,
+}: {
+  firstName: string;
+  initialStats?: DashboardStats;
+}) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+
+  const stats = initialStats ?? {
+    todayMinutes: 0,
+    todaySessions: 0,
+    avgFocusRating: 0,
+    streak: 0,
+    weeklyMinutes: 0,
+  };
+
+  const studyHours = Math.floor(stats.todayMinutes / 60);
+  const studyMins = stats.todayMinutes % 60;
+  const studyTimeValue = `${studyHours}h ${studyMins}m`;
+  const studySubtitle =
+    stats.todaySessions > 0
+      ? `${stats.todaySessions} session${stats.todaySessions !== 1 ? 's' : ''} today`
+      : 'No sessions yet';
+
+  const focusValue = stats.avgFocusRating > 0 ? `${stats.avgFocusRating}/5` : '--';
+  const focusSubtitle =
+    stats.avgFocusRating > 0 ? 'Avg this week' : 'Start a session to track';
+
+  const streakValue = `${stats.streak} day${stats.streak !== 1 ? 's' : ''}`;
+  const streakSubtitle =
+    stats.streak > 0 ? 'Keep it going!' : 'Start your streak today';
 
   return (
     <motion.div
@@ -77,8 +116,8 @@ export function DashboardContent({ firstName }: { firstName: string }) {
 
         {/* Quick actions */}
         <div className="relative z-10 mt-6 flex gap-3">
-          <QuickAction icon={Play} label="Start Study Session" primary />
-          <QuickAction icon={Plus} label="Log Habit" />
+          <QuickAction icon={Play} label="Start Study Session" href="/dashboard/study" primary />
+          <QuickAction icon={Plus} label="Log Habit" href="/dashboard/habits" />
         </div>
       </motion.div>
 
@@ -90,16 +129,16 @@ export function DashboardContent({ firstName }: { firstName: string }) {
         <StatCard
           icon={Clock}
           title="Study Time Today"
-          value="0h 0m"
-          subtitle="No sessions yet"
+          value={studyTimeValue}
+          subtitle={studySubtitle}
           color="brand"
           index={0}
         />
         <StatCard
           icon={Brain}
           title="Focus Score"
-          value="--"
-          subtitle="Start a session to track"
+          value={focusValue}
+          subtitle={focusSubtitle}
           color="secondary"
           index={1}
         />
@@ -114,8 +153,8 @@ export function DashboardContent({ firstName }: { firstName: string }) {
         <StatCard
           icon={Flame}
           title="Active Streak"
-          value="0 days"
-          subtitle="Start your streak today"
+          value={streakValue}
+          subtitle={streakSubtitle}
           color="brand"
           index={3}
         />
@@ -129,6 +168,7 @@ export function DashboardContent({ firstName }: { firstName: string }) {
             title="Recent Study Sessions"
             emptyMessage="Start your first study session to see your progress here"
             emptyAction="Start Studying"
+            href="/dashboard/study"
             color="brand"
           />
         </motion.div>
@@ -139,6 +179,7 @@ export function DashboardContent({ firstName }: { firstName: string }) {
             title="Today's Habits"
             emptyMessage="Track your sleep, water, exercise, and mood to unlock insights"
             emptyAction="Log a Habit"
+            href="/dashboard/habits"
             color="secondary"
           />
         </motion.div>
@@ -170,26 +211,30 @@ export function DashboardContent({ firstName }: { firstName: string }) {
 function QuickAction({
   icon: Icon,
   label,
+  href,
   primary = false,
 }: {
   icon: LucideIcon;
   label: string;
+  href: string;
   primary?: boolean;
 }) {
   return (
-    <motion.button
-      className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
-        primary
-          ? 'bg-white text-brand-700 shadow-md hover:bg-brand-50'
-          : 'bg-white/15 text-white backdrop-blur-sm hover:bg-white/25'
-      }`}
-      whileHover={{ scale: 1.03, y: -1 }}
-      whileTap={{ scale: 0.97 }}
-      transition={spring}
-    >
-      <Icon className="h-4 w-4" />
-      {label}
-    </motion.button>
+    <Link href={href}>
+      <motion.div
+        className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-semibold transition-colors ${
+          primary
+            ? 'bg-white text-brand-700 shadow-md hover:bg-brand-50'
+            : 'bg-white/15 text-white backdrop-blur-sm hover:bg-white/25'
+        }`}
+        whileHover={{ scale: 1.03, y: -1 }}
+        whileTap={{ scale: 0.97 }}
+        transition={spring}
+      >
+        <Icon className="h-4 w-4" />
+        {label}
+      </motion.div>
+    </Link>
   );
 }
 
@@ -259,12 +304,14 @@ function ContentCard({
   title,
   emptyMessage,
   emptyAction,
+  href,
   color,
 }: {
   icon: LucideIcon;
   title: string;
   emptyMessage: string;
   emptyAction: string;
+  href: string;
   color: 'brand' | 'secondary';
 }) {
   const contentStyles = {
@@ -313,14 +360,16 @@ function ContentCard({
         <p className="max-w-[240px] text-center text-sm text-surface-400">
           {emptyMessage}
         </p>
-        <motion.button
-          className={`mt-4 rounded-lg ${cs.buttonBg} px-4 py-2 text-sm font-semibold text-white shadow-sm`}
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          transition={spring}
-        >
-          {emptyAction}
-        </motion.button>
+        <Link href={href}>
+          <motion.div
+            className={`mt-4 rounded-lg ${cs.buttonBg} px-4 py-2 text-sm font-semibold text-white shadow-sm`}
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            transition={spring}
+          >
+            {emptyAction}
+          </motion.div>
+        </Link>
       </div>
     </div>
   );
