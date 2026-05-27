@@ -74,37 +74,42 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: Request) {
-  const user = await getCurrentUser();
+  try {
+    const user = await getCurrentUser();
 
-  if (!user) {
-    return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    if (!user) {
+      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const parsed = startSessionSchema.safeParse(body);
+
+    if (!parsed.success) {
+      return NextResponse.json(
+        { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' },
+        { status: 400 },
+      );
+    }
+
+    const { timerMode, timerDurationMinutes, subjectId, sessionGoal } = parsed.data;
+
+    // Pomodoro defaults to 25 minutes
+    const duration = timerMode === 'pomodoro' ? 25 : timerDurationMinutes ?? null;
+
+    const [session] = await db
+      .insert(studySessions)
+      .values({
+        userId: user.id,
+        subjectId: subjectId ?? null,
+        timerMode,
+        timerDurationMinutes: duration,
+        sessionGoal: sessionGoal ?? null,
+      })
+      .returning();
+
+    return NextResponse.json({ success: true, data: session }, { status: 201 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
-
-  const body = await req.json();
-  const parsed = startSessionSchema.safeParse(body);
-
-  if (!parsed.success) {
-    return NextResponse.json(
-      { success: false, error: parsed.error.issues[0]?.message ?? 'Invalid input' },
-      { status: 400 },
-    );
-  }
-
-  const { timerMode, timerDurationMinutes, subjectId, sessionGoal } = parsed.data;
-
-  // Pomodoro defaults to 25 minutes
-  const duration = timerMode === 'pomodoro' ? 25 : timerDurationMinutes ?? null;
-
-  const [session] = await db
-    .insert(studySessions)
-    .values({
-      userId: user.id,
-      subjectId: subjectId ?? null,
-      timerMode,
-      timerDurationMinutes: duration,
-      sessionGoal: sessionGoal ?? null,
-    })
-    .returning();
-
-  return NextResponse.json({ success: true, data: session }, { status: 201 });
 }

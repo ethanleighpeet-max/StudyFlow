@@ -129,6 +129,19 @@ function SessionSetup() {
           sessionGoal: store.sessionGoal || undefined,
         }),
       });
+
+      if (!res.ok) {
+        const text = await res.text();
+        try {
+          const errData = JSON.parse(text);
+          setError(errData.error ?? `Server error (${res.status})`);
+        } catch {
+          setError(`Server error (${res.status})`);
+        }
+        setIsStarting(false);
+        return;
+      }
+
       const data = await res.json();
 
       if (data.success) {
@@ -136,8 +149,9 @@ function SessionSetup() {
       } else {
         setError(data.error ?? 'Failed to start session');
       }
-    } catch {
-      setError('Network error — please try again');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Request failed: ${msg}`);
     }
     setIsStarting(false);
   };
