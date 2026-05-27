@@ -78,6 +78,7 @@ function SessionSetup() {
   const [newSubjectName, setNewSubjectName] = useState('');
   const [customMinutes, setCustomMinutes] = useState(30);
   const [isStarting, setIsStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch('/api/subjects')
@@ -106,30 +107,37 @@ function SessionSetup() {
   const handleStart = async () => {
     if (isStarting) return;
     setIsStarting(true);
+    setError(null);
 
     if (store.timerMode === 'custom') {
       store.setCustomDuration(customMinutes);
     }
 
-    const res = await fetch('/api/sessions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subjectId: store.subjectId ?? undefined,
-        timerMode: store.timerMode,
-        timerDurationMinutes:
-          store.timerMode === 'custom'
-            ? customMinutes
-            : store.timerMode === 'pomodoro'
-              ? 25
-              : undefined,
-        sessionGoal: store.sessionGoal || undefined,
-      }),
-    });
-    const data = await res.json();
+    try {
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subjectId: store.subjectId ?? undefined,
+          timerMode: store.timerMode,
+          timerDurationMinutes:
+            store.timerMode === 'custom'
+              ? customMinutes
+              : store.timerMode === 'pomodoro'
+                ? 25
+                : undefined,
+          sessionGoal: store.sessionGoal || undefined,
+        }),
+      });
+      const data = await res.json();
 
-    if (data.success) {
-      store.startSession(data.data.id);
+      if (data.success) {
+        store.startSession(data.data.id);
+      } else {
+        setError(data.error ?? 'Failed to start session');
+      }
+    } catch {
+      setError('Network error — please try again');
     }
     setIsStarting(false);
   };
@@ -290,6 +298,17 @@ function SessionSetup() {
           onChange={(e) => store.setSessionGoal(e.target.value)}
         />
       </div>
+
+      {/* Error message */}
+      {error && (
+        <motion.p
+          className="rounded-xl bg-red-50 px-4 py-3 text-center text-sm text-red-600"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          {error}
+        </motion.p>
+      )}
 
       {/* Start button */}
       <motion.button
