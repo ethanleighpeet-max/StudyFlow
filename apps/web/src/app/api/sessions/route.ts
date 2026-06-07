@@ -112,3 +112,22 @@ export async function POST(req: Request) {
     const { timerMode, timerDurationMinutes, subjectId, sessionGoal } = parsed.data;
 
     // Pomodoro defaults to 25 minutes
+    const duration = timerMode === 'pomodoro' ? 25 : timerDurationMinutes ?? null;
+
+    const [session] = await db
+      .insert(studySessions)
+      .values({
+        userId: user.id,
+        subjectId: subjectId ?? null,
+        timerMode,
+        timerDurationMinutes: duration,
+        sessionGoal: sessionGoal ?? null,
+      })
+      .returning();
+
+    return NextResponse.json({ success: true, data: session }, { status: 201 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Internal server error';
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
+  }
+}

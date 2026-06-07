@@ -229,4 +229,11 @@ export function SessionHistory() {
                     </div>
                   )}
                 </div>
-     
+              </motion.div>
+            );
+          })}
+        </div>
+      )}
+    </motion.div>
+  );
+}

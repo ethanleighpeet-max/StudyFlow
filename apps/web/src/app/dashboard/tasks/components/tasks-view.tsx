@@ -2,7 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Check, ClipboardCheck, Plus, Trash2, Calendar } from 'lucide-react';
+import {
+  Check,
+  ClipboardCheck,
+  Plus,
+  Trash2,
+  Calendar,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  List,
+} from 'lucide-react';
 
 const gentleSpring = { type: 'spring' as const, stiffness: 300, damping: 25 };
 const spring = { type: 'spring' as const, stiffness: 400, damping: 17 };
@@ -58,11 +68,23 @@ function groupTask(task: Task): TaskGroup {
   return 'upcoming';
 }
 
+type TasksViewMode = 'list' | 'week';
+
+/** Monday 00:00 of the current week. */
+function startOfWeek(): Date {
+  const d = new Date();
+  const day = d.getDay() === 0 ? 6 : d.getDay() - 1; // Monday = 0
+  d.setDate(d.getDate() - day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
 export function TasksView() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [view, setView] = useState<TasksViewMode>('list');
 
   // Quick-add form
   const [title, setTitle] = useState('');
@@ -146,6 +168,29 @@ export function TasksView() {
     }
   }, []);
 
+  const moveTaskDay = useCallback(async (task: Task, delta: number) => {
+    if (!task.dueDate) return;
+    const next = new Date(task.dueDate);
+    next.setDate(next.getDate() + delta);
+    const iso = next.toISOString();
+
+    // Optimistic update
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, dueDate: iso } : t)));
+
+    const res = await fetch(`/api/tasks/${task.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ dueDate: iso }),
+    });
+    const json = await res.json();
+    if (!json.success) {
+      // Roll back
+      setTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, dueDate: task.dueDate } : t)),
+      );
+    }
+  }, []);
+
   const deleteTask = useCallback(async (id: string) => {
     const res = await fetch(`/api/tasks/${id}`, { method: 'DELETE' });
     const json = await res.json();
@@ -170,19 +215,147 @@ export function TasksView() {
 
   const openCount = tasks.filter((t) => !t.completedAt).length;
 
+  const weekDays = useMemo(() => {
+    const start = startOfWeek();
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date(start);
+      d.setDate(d.getDate() + i);
+      return d;
+    });
+  }, []);
+
+  // Open tasks bucketed into this week's days + a "no date" row (completed hidden)
+  const week = useMemo(() => {
+    const start = weekDays[0];
+    const byDay: Task[][] = Array.from({ length: 7 }, () => []);
+    const noDate: Task[] = [];
+
+    for (const task of tasks) {
+      if (task.completedAt) continue;
+      if (!task.dueDate) {
+        noDate.push(task);
+        continue;
+      }
+      if (!start) continue;
+      const dayIndex = Math.floor(
+        (new Date(task.dueDate).setHours(0, 0, 0, 0) - start.getTime()) / 86400000,
+      );
+      if (dayIndex >= 0 && dayIndex < 7) {
+        byDay[dayIndex]?.push(task);
+      }
+    }
+    return { byDay, noDate };
+  }, [tasks, weekDays]);
+
+  const todayKey = new Date().toDateString();
+
+  const renderWeekCard = (task: Task, withArrows: boolean) => {
+    const p = priorityStyles[task.priority];
+
+    return (
+      <motion.div
+        key={task.id}
+        layout
+        className="group/card rounded-lg border border-surface-200 bg-white p-2 transition-colors hover:border-surface-300"
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.9 }}
+        transition={gentleSpring}
+      >
+        <div className="flex items-start gap-1.5">
+          {/* Checkbox (completed tasks are hidden in week view) */}
+          <motion.button
+            type="button"
+            className="mt-0.5 h-3.5 w-3.5 shrink-0 rounded border-2 border-surface-300 bg-white hover:border-brand-400"
+            whileHover={{ scale: 1.15 }}
+            whileTap={{ scale: 0.85 }}
+            transition={spring}
+            onClick={() => toggleTask(task)}
+            aria-label="Mark complete"
+          />
+          <p className="min-w-0 flex-1 break-words text-xs leading-snug text-surface-900">
+            {task.title}
+          </p>
+        </div>
+        <div className="mt-1.5 flex items-center justify-between">
+          <span className="flex items-center gap-1">
+            {task.subjectColor && (
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ backgroundColor: task.subjectColor }}
+                title={task.subjectName ?? undefined}
+              />
+            )}
+            <span className={`h-1.5 w-1.5 rounded-full ${p.dot}`} title={p.label} />
+          </span>
+          {withArrows && (
+            <span className="flex gap-0.5 opacity-0 transition-opacity group-hover/card:opacity-100">
+              <motion.button
+                type="button"
+                className="rounded p-0.5 text-surface-300 hover:bg-surface-100 hover:text-surface-600"
+                whileTap={{ scale: 0.85 }}
+                transition={spring}
+                onClick={() => moveTaskDay(task, -1)}
+                aria-label="Move to previous day"
+              >
+                <ChevronLeft className="h-3 w-3" />
+              </motion.button>
+              <motion.button
+                type="button"
+                className="rounded p-0.5 text-surface-300 hover:bg-surface-100 hover:text-surface-600"
+                whileTap={{ scale: 0.85 }}
+                transition={spring}
+                onClick={() => moveTaskDay(task, 1)}
+                aria-label="Move to next day"
+              >
+                <ChevronRight className="h-3 w-3" />
+              </motion.button>
+            </span>
+          )}
+        </div>
+      </motion.div>
+    );
+  };
+
   return (
     <motion.div
-      className="mx-auto max-w-3xl space-y-6 p-8"
+      className={`mx-auto space-y-6 p-8 ${view === 'week' ? 'max-w-6xl' : 'max-w-3xl'}`}
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={gentleSpring}
     >
       {/* Header */}
-      <div>
-        <h1 className="font-heading text-2xl font-bold text-surface-900">Tasks</h1>
-        <p className="text-sm text-surface-500">
-          {openCount} open task{openCount !== 1 ? 's' : ''}
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-heading text-2xl font-bold text-surface-900">Tasks</h1>
+          <p className="text-sm text-surface-500">
+            {openCount} open task{openCount !== 1 ? 's' : ''}
+          </p>
+        </div>
+        {/* View toggle */}
+        <div className="flex overflow-hidden rounded-xl border border-surface-200 bg-white shadow-soft">
+          {(['list', 'week'] as const).map((v) => (
+            <motion.button
+              key={v}
+              type="button"
+              className={`flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold capitalize transition-colors ${
+                view === v
+                  ? 'bg-brand-50 text-brand-700'
+                  : 'bg-white text-surface-400 hover:text-surface-600'
+              }`}
+              whileTap={{ scale: 0.95 }}
+              transition={spring}
+              onClick={() => setView(v)}
+            >
+              {v === 'list' ? (
+                <List className="h-3.5 w-3.5" />
+              ) : (
+                <CalendarDays className="h-3.5 w-3.5" />
+              )}
+              {v}
+            </motion.button>
+          ))}
+        </div>
       </div>
 
       <AnimatePresence>
@@ -284,6 +457,60 @@ export function TasksView() {
           </motion.div>
           <p className="text-sm text-surface-500">No tasks yet. Add your first one above.</p>
         </motion.div>
+      ) : view === 'week' ? (
+        <div className="space-y-4">
+          {/* Week grid: Mon–Sun */}
+          <div className="grid grid-cols-7 gap-2">
+            {weekDays.map((day, di) => {
+              const isToday = day.toDateString() === todayKey;
+              const dayTasks = week.byDay[di] ?? [];
+
+              return (
+                <div key={day.toISOString()} className="space-y-1.5">
+                  <div
+                    className={`rounded-lg px-1 py-1.5 text-center ${
+                      isToday ? 'bg-brand-50' : ''
+                    }`}
+                  >
+                    <p
+                      className={`text-[10px] font-semibold uppercase tracking-wide ${
+                        isToday ? 'text-brand-600' : 'text-surface-400'
+                      }`}
+                    >
+                      {day.toLocaleDateString('en-GB', { weekday: 'short' })}
+                    </p>
+                    <p
+                      className={`font-sans text-sm font-bold tabular-nums ${
+                        isToday ? 'text-brand-700' : 'text-surface-600'
+                      }`}
+                    >
+                      {day.getDate()}
+                    </p>
+                  </div>
+                  <div className="min-h-[140px] space-y-1.5 rounded-xl bg-surface-50 p-1.5">
+                    <AnimatePresence>
+                      {dayTasks.map((task) => renderWeekCard(task, true))}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* No-date row */}
+          {week.noDate.length > 0 && (
+            <div className="space-y-2">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-surface-400">
+                No date ({week.noDate.length})
+              </h2>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
+                <AnimatePresence>
+                  {week.noDate.map((task) => renderWeekCard(task, false))}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-6">
           {(Object.keys(groupLabels) as TaskGroup[]).map((group) => {

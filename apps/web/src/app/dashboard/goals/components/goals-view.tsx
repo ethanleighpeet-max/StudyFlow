@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Target, Plus, Trash2, Trophy, CalendarRange, X } from 'lucide-react';
+import { Target, Plus, Trash2, Trophy, CalendarRange, X, Sparkles, Hourglass } from 'lucide-react';
 
 const gentleSpring = { type: 'spring' as const, stiffness: 300, damping: 25 };
 const spring = { type: 'spring' as const, stiffness: 400, damping: 17 };
@@ -26,6 +26,13 @@ interface Subject {
   name: string;
   color: string;
 }
+
+interface Suggestions {
+  overall: number;
+  bySubject: { subjectId: string; subjectName: string; hours: number }[];
+}
+
+const BURST_DOTS = [0, 1, 2, 3, 4, 5];
 
 const goalTypeMeta: Record<GoalType, { label: string; unit: string; description: string }> = {
   weekly_hours: {
@@ -73,6 +80,29 @@ export function GoalsView() {
   const [formSubjectId, setFormSubjectId] = useState<string>('');
   const [formEndDate, setFormEndDate] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Smart suggestions (last calendar week's studied hours), fetched once
+  const [suggestions, setSuggestions] = useState<Suggestions | null>(null);
+
+  useEffect(() => {
+    if (!showForm || formType !== 'weekly_hours' || suggestions) return;
+    fetch('/api/goals/suggestions')
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setSuggestions(json.data);
+      })
+      .catch(() => {});
+  }, [showForm, formType, suggestions]);
+
+  const lastWeekHours = useMemo(() => {
+    if (!suggestions) return 0;
+    if (formSubjectId) {
+      return suggestions.bySubject.find((s) => s.subjectId === formSubjectId)?.hours ?? 0;
+    }
+    return suggestions.overall;
+  }, [suggestions, formSubjectId]);
+
+  const suggestedTarget = Math.max(1, Math.ceil(lastWeekHours + 0.5));
 
   const load = useCallback(() => {
     setLoading(true);
@@ -255,6 +285,29 @@ export function GoalsView() {
               )}
             </div>
 
+            {/* Smart suggestion chip */}
+            <AnimatePresence>
+              {formType === 'weekly_hours' && lastWeekHours > 0 && (
+                <motion.button
+                  type="button"
+                  className="flex items-center gap-1.5 rounded-full border border-brand-200 bg-brand-50 px-3 py-1.5 text-xs font-medium text-brand-700"
+                  initial={{ opacity: 0, scale: 0.9, y: -4 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  whileHover={{ scale: 1.04 }}
+                  whileTap={{ scale: 0.96 }}
+                  transition={spring}
+                  onClick={() => setFormTarget(suggestedTarget)}
+                >
+                  <Sparkles className="h-3 w-3" />
+                  Last week:{' '}
+                  <span className="font-sans font-semibold tabular-nums">{lastWeekHours}h</span>
+                  {' — '}aim for{' '}
+                  <span className="font-sans font-semibold tabular-nums">{suggestedTarget}h</span>?
+                </motion.button>
+              )}
+            </AnimatePresence>
+
             <motion.button
               type="button"
               className="w-full rounded-xl bg-brand-500 py-2.5 text-sm font-semibold text-white shadow-sm disabled:opacity-50"
@@ -309,27 +362,55 @@ export function GoalsView() {
               const meta = goalTypeMeta[goal.type];
               const pct = Math.min(100, Math.round((goal.progress / goal.target) * 100));
               const achieved = goal.progress >= goal.target;
+              const daysLeft = Math.max(
+                1,
+                Math.ceil((new Date(goal.periodEnd).getTime() - Date.now()) / 86400000),
+              );
+              const perDay =
+                Math.round(Math.max(0, (goal.target - goal.progress) / daysLeft) * 10) / 10;
 
               return (
                 <motion.div
                   key={goal.id}
-                  className={`rounded-2xl border bg-white p-5 ${
-                    achieved ? 'border-accent-200' : 'border-surface-200'
-                  }`}
+                  className={
+                    achieved
+                      ? 'rounded-2xl bg-gradient-to-br from-accent-300 via-accent-400 to-accent-200 p-[1.5px] shadow-glow'
+                      : 'rounded-2xl border border-surface-200 bg-white p-5'
+                  }
                   initial={{ opacity: 0, y: 15 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.97 }}
                   transition={{ delay: i * 0.05, ...gentleSpring }}
                 >
+                  <div className={achieved ? 'rounded-[14px] bg-white p-5' : undefined}>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
                       {achieved && (
                         <motion.div
+                          className="relative"
                           initial={{ scale: 0, rotate: -30 }}
                           animate={{ scale: 1, rotate: 0 }}
                           transition={spring}
                         >
                           <Trophy className="h-4 w-4 text-accent-500" />
+                          {/* One-time celebration burst */}
+                          {BURST_DOTS.map((j) => {
+                            const angle = (j / BURST_DOTS.length) * Math.PI * 2;
+                            return (
+                              <motion.span
+                                key={j}
+                                className="absolute left-1/2 top-1/2 h-1.5 w-1.5 rounded-full bg-accent-400"
+                                initial={{ x: '-50%', y: '-50%', scale: 1, opacity: 1 }}
+                                animate={{
+                                  x: `calc(-50% + ${Math.round(Math.cos(angle) * 18)}px)`,
+                                  y: `calc(-50% + ${Math.round(Math.sin(angle) * 18)}px)`,
+                                  scale: 0,
+                                  opacity: 0,
+                                }}
+                                transition={{ duration: 0.7, delay: 0.15, ease: 'easeOut' }}
+                              />
+                            );
+                          })}
                         </motion.div>
                       )}
                       <span className="font-medium text-surface-900">{meta.label}</span>
@@ -392,7 +473,28 @@ export function GoalsView() {
                       transition={{ delay: 0.2 + i * 0.05, ...gentleSpring }}
                     />
                   </div>
+
+                  {/* Exam countdown */}
+                  {goal.type === 'exam_prep' && (
+                    <div className="mt-2 flex items-center gap-2.5 text-xs">
+                      <span
+                        className={`flex items-center gap-1 font-medium ${
+                          daysLeft <= 3 ? 'text-red-500' : 'text-surface-500'
+                        }`}
+                      >
+                        <Hourglass className="h-3 w-3" />
+                        <span className="font-sans tabular-nums">{daysLeft}</span>
+                        {' '}day{daysLeft !== 1 ? 's' : ''} left
+                      </span>
+                      <span className="text-surface-400">
+                        suggested ≈{' '}
+                        <span className="font-sans font-semibold tabular-nums">{perDay}</span>
+                        {' '}h/day
+                      </span>
+                    </div>
+                  )}
                   <p className="mt-2 text-xs text-surface-400">{meta.description}</p>
+                  </div>
                 </motion.div>
               );
             })}

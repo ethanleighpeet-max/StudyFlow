@@ -8,10 +8,11 @@ const updateTaskSchema = z.object({
   completed: z.boolean().optional(),
   title: z.string().min(1).max(200).optional(),
   priority: z.enum(['low', 'medium', 'high']).optional(),
+  dueDate: z.string().datetime().nullable().optional(),
 });
 
 /**
- * PATCH /api/tasks/[id] — toggle completion or edit title/priority.
+ * PATCH /api/tasks/[id] — toggle completion or edit title/priority/due date.
  */
 export async function PATCH(
   req: Request,
@@ -43,6 +44,9 @@ export async function PATCH(
   }
   if (parsed.data.priority !== undefined) {
     updates.priority = parsed.data.priority;
+  }
+  if (parsed.data.dueDate !== undefined) {
+    updates.dueDate = parsed.data.dueDate ? new Date(parsed.data.dueDate) : null;
   }
 
   const [updated] = await db
