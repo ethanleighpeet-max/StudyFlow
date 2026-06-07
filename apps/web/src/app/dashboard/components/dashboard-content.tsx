@@ -1,15 +1,22 @@
 'use client';
 
-// Dashboard overview: stat cards + quick actions
+// Dashboard overview: live stats, recent sessions, today's habits with one-tap logging
+import { useState } from 'react';
 import { motion } from 'motion/react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   Clock,
   Brain,
   Droplets,
+  Dumbbell,
   Flame,
+  Moon,
   Play,
   Plus,
+  Smile,
+  Sparkles,
+  Star,
   TrendingUp,
   BookOpen,
   Heart,
@@ -26,19 +33,33 @@ interface DashboardStats {
   habitsToday: number;
 }
 
+interface RecentSession {
+  id: string;
+  subjectName: string | null;
+  subjectColor: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  focusRating: number | null;
+}
+
+interface TodayHabits {
+  sleepHours: number | null;
+  waterGlasses: number;
+  exerciseMinutes: number;
+  mood: number | null;
+}
+
+const MOOD_EMOJIS = ['😞', '😕', '😐', '🙂', '😄'] as const;
+
 // Spring physics from design tokens
 const spring = { type: 'spring' as const, stiffness: 400, damping: 17 };
 const gentleSpring = { type: 'spring' as const, stiffness: 300, damping: 25 };
 
-// Stagger children animation
 const container = {
   hidden: { opacity: 0 },
   show: {
     opacity: 1,
-    transition: {
-      staggerChildren: 0.08,
-      delayChildren: 0.1,
-    },
+    transition: { staggerChildren: 0.08, delayChildren: 0.1 },
   },
 };
 
@@ -47,12 +68,37 @@ const item = {
   show: { opacity: 1, y: 0, transition: gentleSpring },
 };
 
+function formatDuration(startedAt: string, endedAt: string | null): string {
+  if (!endedAt) return 'In progress';
+  const diff = (new Date(endedAt).getTime() - new Date(startedAt).getTime()) / 1000;
+  const hours = Math.floor(diff / 3600);
+  const minutes = Math.floor((diff % 3600) / 60);
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
+}
+
+function relativeDay(iso: string): string {
+  const date = new Date(iso);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const day = new Date(date);
+  day.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((today.getTime() - day.getTime()) / 86400000);
+  if (diffDays === 0) return 'Today';
+  if (diffDays === 1) return 'Yesterday';
+  return date.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
 export function DashboardContent({
   firstName,
   initialStats,
+  recentSessions = [],
+  todayHabits = { sleepHours: null, waterGlasses: 0, exerciseMinutes: 0, mood: null },
 }: {
   firstName: string;
   initialStats?: DashboardStats;
+  recentSessions?: RecentSession[];
+  todayHabits?: TodayHabits;
 }) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
@@ -94,7 +140,6 @@ export function DashboardContent({
         variants={item}
         className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-500 via-brand-600 to-secondary-600 p-8 text-white shadow-lg"
       >
-        {/* Decorative circles */}
         <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/10" />
         <div className="absolute -bottom-6 right-20 h-24 w-24 rounded-full bg-white/5" />
         <div className="absolute left-1/2 top-0 h-32 w-32 rounded-full bg-accent-400/10" />
@@ -117,7 +162,6 @@ export function DashboardContent({
           </p>
         </div>
 
-        {/* Quick actions */}
         <div className="relative z-10 mt-6 flex gap-3">
           <QuickAction icon={Play} label="Start Study Session" href="/dashboard/study" primary />
           <QuickAction icon={Plus} label="Log Habit" href="/dashboard/habits" />
@@ -135,7 +179,6 @@ export function DashboardContent({
           value={studyTimeValue}
           subtitle={studySubtitle}
           color="brand"
-          index={0}
         />
         <StatCard
           icon={Brain}
@@ -143,7 +186,6 @@ export function DashboardContent({
           value={focusValue}
           subtitle={focusSubtitle}
           color="secondary"
-          index={1}
         />
         <StatCard
           icon={Droplets}
@@ -151,7 +193,6 @@ export function DashboardContent({
           value={`${stats.habitsToday} / 4`}
           subtitle={stats.habitsToday > 0 ? 'Logged today' : 'Log your first habit'}
           color="accent"
-          index={2}
         />
         <StatCard
           icon={Flame}
@@ -159,32 +200,17 @@ export function DashboardContent({
           value={streakValue}
           subtitle={streakSubtitle}
           color="brand"
-          index={3}
         />
       </motion.div>
 
       {/* Content sections */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <motion.div variants={item}>
-          <ContentCard
-            icon={BookOpen}
-            title="Recent Study Sessions"
-            emptyMessage="Start your first study session to see your progress here"
-            emptyAction="Start Studying"
-            href="/dashboard/study"
-            color="brand"
-          />
+          <RecentSessionsCard sessions={recentSessions} />
         </motion.div>
 
         <motion.div variants={item}>
-          <ContentCard
-            icon={Heart}
-            title="Today's Habits"
-            emptyMessage="Track your sleep, water, exercise, and mood to unlock insights"
-            emptyAction="Log a Habit"
-            href="/dashboard/habits"
-            color="secondary"
-          />
+          <TodayHabitsCard habits={todayHabits} />
         </motion.div>
       </div>
 
@@ -214,6 +240,274 @@ export function DashboardContent({
         </Link>
       </motion.div>
     </motion.div>
+  );
+}
+
+function RecentSessionsCard({ sessions }: { sessions: RecentSession[] }) {
+  const [seeding, setSeeding] = useState(false);
+  const router = useRouter();
+
+  const seedDemo = async (): Promise<void> => {
+    setSeeding(true);
+    try {
+      await fetch('/api/dev/seed?confirm=yes');
+      router.refresh();
+    } finally {
+      setSeeding(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-surface-200 bg-white p-6 shadow-soft">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-100">
+            <BookOpen className="h-4 w-4 text-brand-600" />
+          </div>
+          <h2 className="font-heading text-base font-semibold text-surface-900">
+            Recent Study Sessions
+          </h2>
+        </div>
+        {sessions.length > 0 && (
+          <Link
+            href="/dashboard/study/history"
+            className="text-xs font-medium text-brand-600 hover:text-brand-700"
+          >
+            View all
+          </Link>
+        )}
+      </div>
+
+      {sessions.length === 0 ? (
+        <div className="mt-6 flex flex-col items-center justify-center rounded-xl bg-surface-50/50 py-10">
+          <motion.div
+            className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-50"
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          >
+            <BookOpen className="h-7 w-7 text-brand-400" />
+          </motion.div>
+          <p className="max-w-[240px] text-center text-sm text-surface-400">
+            Start your first study session to see your progress here
+          </p>
+          <div className="mt-4 flex gap-2">
+            <Link href="/dashboard/study">
+              <motion.div
+                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+                transition={spring}
+              >
+                Start Studying
+              </motion.div>
+            </Link>
+            <motion.button
+              type="button"
+              className="flex items-center gap-1.5 rounded-lg border border-surface-200 px-4 py-2 text-sm font-medium text-surface-500 hover:bg-surface-50 disabled:opacity-50"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              transition={spring}
+              disabled={seeding}
+              onClick={seedDemo}
+            >
+              <Sparkles className="h-3.5 w-3.5" />
+              {seeding ? 'Loading…' : 'Load demo data'}
+            </motion.button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 space-y-2.5">
+          {sessions.map((session, i) => (
+            <motion.div
+              key={session.id}
+              className="flex items-center justify-between rounded-xl border border-surface-100 bg-surface-50/40 px-4 py-3"
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2 + i * 0.08, ...gentleSpring }}
+            >
+              <div className="flex items-center gap-3">
+                <span
+                  className="h-2.5 w-2.5 shrink-0 rounded-full"
+                  style={{ backgroundColor: session.subjectColor ?? '#A8A29E' }}
+                />
+                <div>
+                  <p className="text-sm font-medium text-surface-900">
+                    {session.subjectName ?? 'No subject'}
+                  </p>
+                  <p className="text-xs text-surface-400">
+                    {relativeDay(session.startedAt)} ·{' '}
+                    {formatDuration(session.startedAt, session.endedAt)}
+                  </p>
+                </div>
+              </div>
+              {session.focusRating && (
+                <div className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <Star
+                      key={s}
+                      className={`h-3 w-3 ${
+                        s <= (session.focusRating ?? 0)
+                          ? 'fill-accent-400 text-accent-400'
+                          : 'text-surface-200'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TodayHabitsCard({ habits }: { habits: TodayHabits }) {
+  const router = useRouter();
+  const [pending, setPending] = useState<string | null>(null);
+
+  const log = async (type: 'water' | 'exercise' | 'mood', value: number): Promise<void> => {
+    setPending(type);
+    try {
+      await fetch('/api/habits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, value }),
+      });
+      router.refresh();
+    } finally {
+      setPending(null);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-surface-200 bg-white p-6 shadow-soft">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-secondary-100">
+            <Heart className="h-4 w-4 text-secondary-600" />
+          </div>
+          <h2 className="font-heading text-base font-semibold text-surface-900">
+            Today&apos;s Habits
+          </h2>
+        </div>
+        <Link
+          href="/dashboard/habits"
+          className="text-xs font-medium text-brand-600 hover:text-brand-700"
+        >
+          Open habits
+        </Link>
+      </div>
+
+      <div className="mt-4 space-y-2.5">
+        {/* Sleep */}
+        <HabitRow icon={Moon} iconBg="bg-secondary-100" iconColor="text-secondary-600" label="Sleep">
+          {habits.sleepHours !== null ? (
+            <span className="font-sans text-sm font-bold tabular-nums text-surface-900">
+              {habits.sleepHours}h
+            </span>
+          ) : (
+            <Link
+              href="/dashboard/habits"
+              className="text-xs font-semibold text-secondary-600 hover:text-secondary-700"
+            >
+              Log sleep →
+            </Link>
+          )}
+        </HabitRow>
+
+        {/* Water */}
+        <HabitRow icon={Droplets} iconBg="bg-brand-100" iconColor="text-brand-600" label="Water">
+          <div className="flex items-center gap-2.5">
+            <span className="font-sans text-sm font-bold tabular-nums text-surface-900">
+              {habits.waterGlasses} / 8
+            </span>
+            <motion.button
+              type="button"
+              className="flex h-6 w-6 items-center justify-center rounded-md bg-brand-500 text-white disabled:opacity-50"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+              transition={spring}
+              disabled={pending === 'water'}
+              onClick={() => log('water', 1)}
+              aria-label="Add a glass of water"
+            >
+              <Plus className="h-3.5 w-3.5" />
+            </motion.button>
+          </div>
+        </HabitRow>
+
+        {/* Exercise */}
+        <HabitRow icon={Dumbbell} iconBg="bg-accent-100" iconColor="text-accent-600" label="Exercise">
+          <div className="flex items-center gap-2.5">
+            <span className="font-sans text-sm font-bold tabular-nums text-surface-900">
+              {habits.exerciseMinutes} min
+            </span>
+            <motion.button
+              type="button"
+              className="rounded-md bg-accent-500 px-2 py-0.5 text-xs font-semibold text-white disabled:opacity-50"
+              whileHover={{ scale: 1.08 }}
+              whileTap={{ scale: 0.92 }}
+              transition={spring}
+              disabled={pending === 'exercise'}
+              onClick={() => log('exercise', 30)}
+            >
+              +30
+            </motion.button>
+          </div>
+        </HabitRow>
+
+        {/* Mood */}
+        <HabitRow icon={Smile} iconBg="bg-surface-100" iconColor="text-surface-600" label="Mood">
+          {habits.mood !== null ? (
+            <span className="text-lg">{MOOD_EMOJIS[habits.mood - 1] ?? '🙂'}</span>
+          ) : (
+            <div className="flex gap-1">
+              {MOOD_EMOJIS.map((emoji, i) => (
+                <motion.button
+                  key={emoji}
+                  type="button"
+                  className="rounded-lg p-0.5 text-base hover:bg-surface-100 disabled:opacity-50"
+                  whileHover={{ scale: 1.25, y: -2 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={spring}
+                  disabled={pending === 'mood'}
+                  onClick={() => log('mood', i + 1)}
+                >
+                  {emoji}
+                </motion.button>
+              ))}
+            </div>
+          )}
+        </HabitRow>
+      </div>
+    </div>
+  );
+}
+
+function HabitRow({
+  icon: Icon,
+  iconBg,
+  iconColor,
+  label,
+  children,
+}: {
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center justify-between rounded-xl border border-surface-100 bg-surface-50/40 px-4 py-2.5">
+      <div className="flex items-center gap-3">
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${iconBg}`}>
+          <Icon className={`h-3.5 w-3.5 ${iconColor}`} />
+        </div>
+        <span className="text-sm font-medium text-surface-700">{label}</span>
+      </div>
+      {children}
+    </div>
   );
 }
 
@@ -253,14 +547,12 @@ function StatCard({
   value,
   subtitle,
   color,
-  index,
 }: {
   icon: LucideIcon;
   title: string;
   value: string;
   subtitle: string;
   color: 'brand' | 'secondary' | 'accent';
-  index: number;
 }) {
   const styles = {
     brand: {
@@ -305,81 +597,5 @@ function StatCard({
       </p>
       <p className="mt-1 text-xs text-surface-400">{subtitle}</p>
     </motion.div>
-  );
-}
-
-function ContentCard({
-  icon: Icon,
-  title,
-  emptyMessage,
-  emptyAction,
-  href,
-  color,
-}: {
-  icon: LucideIcon;
-  title: string;
-  emptyMessage: string;
-  emptyAction: string;
-  href: string;
-  color: 'brand' | 'secondary';
-}) {
-  const contentStyles = {
-    brand: {
-      headerIconBg: 'bg-brand-100',
-      headerIconColor: 'text-brand-600',
-      emptyIconBg: 'bg-brand-50',
-      emptyIconColor: 'text-brand-400',
-      buttonBg: 'bg-brand-500',
-    },
-    secondary: {
-      headerIconBg: 'bg-secondary-100',
-      headerIconColor: 'text-secondary-600',
-      emptyIconBg: 'bg-secondary-50',
-      emptyIconColor: 'text-secondary-400',
-      buttonBg: 'bg-secondary-500',
-    },
-  };
-
-  const cs = contentStyles[color];
-
-  return (
-    <div className="rounded-2xl border border-surface-200 bg-white p-6 shadow-soft">
-      <div className="flex items-center gap-3">
-        <div className={`flex h-8 w-8 items-center justify-center rounded-lg ${cs.headerIconBg}`}>
-          <Icon className={`h-4 w-4 ${cs.headerIconColor}`} />
-        </div>
-        <h2 className="font-heading text-base font-semibold text-surface-900">{title}</h2>
-      </div>
-
-      {/* Empty state */}
-      <div className="mt-6 flex flex-col items-center justify-center rounded-xl bg-surface-50/50 py-10">
-        <motion.div
-          className={`flex h-14 w-14 items-center justify-center rounded-2xl ${cs.emptyIconBg} mb-4`}
-          animate={{
-            y: [0, -4, 0],
-          }}
-          transition={{
-            duration: 3,
-            repeat: Infinity,
-            ease: 'easeInOut',
-          }}
-        >
-          <Icon className={`h-7 w-7 ${cs.emptyIconColor}`} />
-        </motion.div>
-        <p className="max-w-[240px] text-center text-sm text-surface-400">
-          {emptyMessage}
-        </p>
-        <Link href={href}>
-          <motion.div
-            className={`mt-4 rounded-lg ${cs.buttonBg} px-4 py-2 text-sm font-semibold text-white shadow-sm`}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            transition={spring}
-          >
-            {emptyAction}
-          </motion.div>
-        </Link>
-      </div>
-    </div>
   );
 }
