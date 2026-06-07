@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { db, goals, habits, studySessions, subjects } from '@studyflow/db';
-import { createGoalSchema } from '@studyflow/shared';
-import { and, eq, gte, isNotNull, lte, sql } from 'drizzle-orm';
+import { TIER_LIMITS, createGoalSchema } from '@studyflow/shared';
+import { and, count, eq, gte, isNotNull, lte, sql } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 
 interface GoalWithProgress {
@@ -117,17 +117,15 @@ export async function POST(req: Request) {
     );
   }
 
-  const [goal] = await db
-    .insert(goals)
-    .values({
-      userId: user.id,
-      subjectId: parsed.data.subjectId,
-      type: parsed.data.type,
-      target: parsed.data.target,
-      periodStart: new Date(parsed.data.periodStart),
-      periodEnd: new Date(parsed.data.periodEnd),
-    })
-    .returning();
+  // Free-tier limit enforcement
+  if (user.premiumTier === 'free') {
+    const [row] = await db
+      .select({ total: count() })
+      .from(goals)
+      .where(eq(goals.userId, user.id));
 
-  return NextResponse.json({ success: true, data: goal }, { status: 201 });
-}
+    if ((row?.total ?? 0) >= TIER_LIMITS.free.maxGoals) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Free plan is limited to 3 goals. Upgra

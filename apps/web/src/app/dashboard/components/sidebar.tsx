@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   BarChart3,
   Sparkles,
+  UserRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { UserButton } from '@clerk/nextjs';
@@ -28,6 +29,7 @@ const navItems: NavItemConfig[] = [
   { href: '/dashboard/goals', icon: Target, label: 'Goals' },
   { href: '/dashboard/tasks', icon: ClipboardCheck, label: 'Tasks' },
   { href: '/dashboard/insights', icon: BarChart3, label: 'Insights' },
+  { href: '/dashboard/profile', icon: UserRound, label: 'Profile' },
 ];
 
 export function Sidebar({ userName, userEmail }: { userName: string; userEmail: string }) {
@@ -120,10 +122,4 @@ function NavItem({
           <motion.div
             className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-brand-500"
             layoutId="activeIndicator"
-            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-          />
-        )}
-      </motion.div>
-    </Link>
-  );
-}
+            transition={{ type: 'spring', stiffness: 4

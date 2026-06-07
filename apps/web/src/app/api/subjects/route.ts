@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db, subjects } from '@studyflow/db';
-import { eq } from 'drizzle-orm';
+import { TIER_LIMITS } from '@studyflow/shared';
+import { count, eq } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 
 const createSubjectSchema = z.object({
@@ -43,15 +44,11 @@ export async function POST(req: Request) {
     );
   }
 
-  const [subject] = await db
-    .insert(subjects)
-    .values({
-      userId: user.id,
-      name: parsed.data.name,
-      color: parsed.data.color ?? '#6366F1',
-      icon: parsed.data.icon ?? null,
-    })
-    .returning();
+  // Free-tier limit enforcement
+  if (user.premiumTier === 'free') {
+    const [row] = await db
+      .select({ total: count() })
+      .from(subjects)
+      .where(eq(subjects.userId, user.id));
 
-  return NextResponse.json({ success: true, data: subject }, { status: 201 });
-}
+    if ((row?.total ?? 0) >= TIER_LIMITS.free.maxSubje

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { motion, AnimatePresence } from 'motion/react';
 import { Target, Plus, Trash2, Trophy, CalendarRange, X, Sparkles, Hourglass } from 'lucide-react';
 
@@ -73,6 +74,7 @@ export function GoalsView() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tierLimited, setTierLimited] = useState(false);
 
   // Form state
   const [formType, setFormType] = useState<GoalType>('weekly_hours');
@@ -126,6 +128,7 @@ export function GoalsView() {
   const createGoal = useCallback(async () => {
     setSubmitting(true);
     setError(null);
+    setTierLimited(false);
 
     const isWeekly = formType === 'weekly_hours';
     const isConsistency = formType === 'habit_consistency';
@@ -164,6 +167,7 @@ export function GoalsView() {
       load();
     } else {
       setError(json.error ?? 'Failed to create goal');
+      if (json.code === 'TIER_LIMIT') setTierLimited(true);
     }
   }, [formType, formTarget, formSubjectId, formEndDate, load]);
 
@@ -212,6 +216,14 @@ export function GoalsView() {
             exit={{ opacity: 0 }}
           >
             {error}
+            {tierLimited && (
+              <Link
+                href="/dashboard/upgrade"
+                className="ml-2 font-semibold text-brand-600 underline underline-offset-2"
+              >
+                Upgrade
+              </Link>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -488,19 +500,4 @@ export function GoalsView() {
                       </span>
                       <span className="text-surface-400">
                         suggested ≈{' '}
-                        <span className="font-sans font-semibold tabular-nums">{perDay}</span>
-                        {' '}h/day
-                      </span>
-                    </div>
-                  )}
-                  <p className="mt-2 text-xs text-surface-400">{meta.description}</p>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </AnimatePresence>
-        </div>
-      )}
-    </motion.div>
-  );
-}
+                        <s
