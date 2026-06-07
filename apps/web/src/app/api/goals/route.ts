@@ -128,4 +128,25 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Free plan is limited to 3 goals. Upgra
+          error: 'Free plan is limited to 3 goals. Upgrade to Pro for unlimited.',
+          code: 'TIER_LIMIT',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
+  const [goal] = await db
+    .insert(goals)
+    .values({
+      userId: user.id,
+      subjectId: parsed.data.subjectId,
+      type: parsed.data.type,
+      target: parsed.data.target,
+      periodStart: new Date(parsed.data.periodStart),
+      periodEnd: new Date(parsed.data.periodEnd),
+    })
+    .returning();
+
+  return NextResponse.json({ success: true, data: goal }, { status: 201 });
+}

@@ -500,4 +500,19 @@ export function GoalsView() {
                       </span>
                       <span className="text-surface-400">
                         suggested ≈{' '}
-                        <s
+                        <span className="font-sans font-semibold tabular-nums">{perDay}</span>
+                        {' '}h/day
+                      </span>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-surface-400">{meta.description}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      )}
+    </motion.div>
+  );
+}

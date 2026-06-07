@@ -51,4 +51,27 @@ export async function POST(req: Request) {
       .from(subjects)
       .where(eq(subjects.userId, user.id));
 
-    if ((row?.total ?? 0) >= TIER_LIMITS.free.maxSubje
+    if ((row?.total ?? 0) >= TIER_LIMITS.free.maxSubjects) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Free plan is limited to 5 subjects. Upgrade to Pro for unlimited.',
+          code: 'TIER_LIMIT',
+        },
+        { status: 403 },
+      );
+    }
+  }
+
+  const [subject] = await db
+    .insert(subjects)
+    .values({
+      userId: user.id,
+      name: parsed.data.name,
+      color: parsed.data.color ?? '#6366F1',
+      icon: parsed.data.icon ?? null,
+    })
+    .returning();
+
+  return NextResponse.json({ success: true, data: subject }, { status: 201 });
+}

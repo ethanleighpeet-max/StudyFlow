@@ -11,6 +11,7 @@ import {
   ClipboardCheck,
   BarChart3,
   Sparkles,
+  Users,
   UserRound,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
@@ -29,6 +30,7 @@ const navItems: NavItemConfig[] = [
   { href: '/dashboard/goals', icon: Target, label: 'Goals' },
   { href: '/dashboard/tasks', icon: ClipboardCheck, label: 'Tasks' },
   { href: '/dashboard/insights', icon: BarChart3, label: 'Insights' },
+  { href: '/dashboard/social', icon: Users, label: 'Social' },
   { href: '/dashboard/profile', icon: UserRound, label: 'Profile' },
 ];
 
@@ -122,4 +124,10 @@ function NavItem({
           <motion.div
             className="absolute left-0 top-1/2 h-6 w-1 -translate-y-1/2 rounded-r-full bg-brand-500"
             layoutId="activeIndicator"
-            transition={{ type: 'spring', stiffness: 4
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          />
+        )}
+      </motion.div>
+    </Link>
+  );
+}

@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { MorningCheckin } from './morning-checkin';
+import { FriendActivity } from './friend-activity';
 
 interface DashboardStats {
   todayMinutes: number;
@@ -217,6 +218,9 @@ export function DashboardContent({
           <TodayHabitsCard habits={todayHabits} />
         </motion.div>
       </div>
+
+      {/* Friend activity feed (renders nothing when sharing is off or feed is empty) */}
+      <FriendActivity />
 
       {/* Insights teaser */}
       <motion.div variants={item}>

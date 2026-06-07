@@ -6,6 +6,7 @@ import { getCurrentUser } from '@/lib/auth';
 
 const updatePreferencesSchema = z.object({
   waterTarget: z.number().int().min(1).max(20).optional(),
+  shareActivity: z.boolean().optional(),
 });
 
 /**
@@ -22,7 +23,7 @@ export async function GET() {
 }
 
 /**
- * PATCH /api/preferences — merge partial preferences { waterTarget? } into users.preferences.
+ * PATCH /api/preferences — merge partial preferences { waterTarget?, shareActivity? } into users.preferences.
  */
 export async function PATCH(req: Request) {
   const user = await getCurrentUser();
@@ -44,6 +45,9 @@ export async function PATCH(req: Request) {
   const merged: Record<string, unknown> = { ...user.preferences };
   if (parsed.data.waterTarget !== undefined) {
     merged.waterTarget = parsed.data.waterTarget;
+  }
+  if (parsed.data.shareActivity !== undefined) {
+    merged.shareActivity = parsed.data.shareActivity;
   }
 
   const [updated] = await db
