@@ -1,5 +1,6 @@
 'use client';
 
+// Dashboard overview: stat cards + quick actions
 import { motion } from 'motion/react';
 import Link from 'next/link';
 import {
@@ -22,6 +23,7 @@ interface DashboardStats {
   avgFocusRating: number;
   streak: number;
   weeklyMinutes: number;
+  habitsToday: number;
 }
 
 // Spring physics from design tokens
@@ -61,6 +63,7 @@ export function DashboardContent({
     avgFocusRating: 0,
     streak: 0,
     weeklyMinutes: 0,
+    habitsToday: 0,
   };
 
   const studyHours = Math.floor(stats.todayMinutes / 60);
@@ -145,8 +148,8 @@ export function DashboardContent({
         <StatCard
           icon={Droplets}
           title="Habits Logged"
-          value="0 / 5"
-          subtitle="Log your first habit"
+          value={`${stats.habitsToday} / 4`}
+          subtitle={stats.habitsToday > 0 ? 'Logged today' : 'Log your first habit'}
           color="accent"
           index={2}
         />
@@ -187,22 +190,28 @@ export function DashboardContent({
 
       {/* Insights teaser */}
       <motion.div variants={item}>
-        <div className="relative overflow-hidden rounded-2xl border border-surface-200 bg-gradient-to-r from-secondary-50/50 to-accent-50/50 p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary-100">
-              <TrendingUp className="h-5 w-5 text-secondary-600" />
+        <Link href="/dashboard/insights" className="block">
+          <motion.div
+            className="relative overflow-hidden rounded-2xl border border-surface-200 bg-gradient-to-r from-secondary-50/50 to-accent-50/50 p-6"
+            whileHover={{ y: -2 }}
+            transition={spring}
+          >
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary-100">
+                <TrendingUp className="h-5 w-5 text-secondary-600" />
+              </div>
+              <div>
+                <h3 className="font-heading text-base font-semibold text-surface-900">
+                  See your insights
+                </h3>
+                <p className="mt-1 text-sm text-surface-500">
+                  StudyFlow connects your study sessions and habits to show how your daily
+                  routines affect your focus and productivity.
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="font-heading text-base font-semibold text-surface-900">
-                Insights will appear here
-              </h3>
-              <p className="mt-1 text-sm text-surface-500">
-                Once you log a few study sessions and habits, StudyFlow will show you how your
-                daily routines affect your focus and productivity.
-              </p>
-            </div>
-          </div>
-        </div>
+          </motion.div>
+        </Link>
       </motion.div>
     </motion.div>
   );
