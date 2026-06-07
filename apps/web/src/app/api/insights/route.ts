@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { db, habits, studySessions } from '@studyflow/db';
+import { db, habits, studySessions, subjects } from '@studyflow/db';
 import { and, eq, gte, isNotNull } from 'drizzle-orm';
 import { getCurrentUser } from '@/lib/auth';
 
@@ -22,6 +22,32 @@ interface Insight {
   kind: 'sleep' | 'exercise' | 'water' | 'pattern';
 }
 
+interface SubjectBreakdown {
+  subjectId: string | null;
+  name: string;
+  color: string;
+  minutes: number;
+}
+
+interface WeeklySummary {
+  /** YYYY-MM-DD (UTC, Monday) */
+  weekStart: string;
+  studyMinutes: number;
+  habitDays: number;
+  avgFocus: number | null;
+  bestDay: string | null;
+}
+
+const WEEKDAY_NAMES = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const;
+
 function dayKey(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
@@ -33,7 +59,7 @@ function avg(values: number[]): number | null {
 
 /**
  * GET /api/insights — last 30 days of study + habit data joined per day,
- * plus computed correlation insights.
+ * plus computed correlation insights, subject breakdown, and weekly summaries.
  */
 export async function GET() {
   const user = await getCurrentUser();
@@ -46,7 +72,19 @@ export async function GET() {
   since.setUTCHours(0, 0, 0, 0);
   since.setUTCDate(since.getUTCDate() - 29);
 
-  const [sessions, habitLogs] = await Promise.all([
+  // Monday of the current (incomplete) week, UTC — anchor for completed weeks
+  const currentWeekStart = new Date();
+  currentWeekStart.setUTCHours(0, 0, 0, 0);
+  currentWeekStart.setUTCDate(
+    currentWeekStart.getUTCDate() - ((currentWeekStart.getUTCDay() + 6) % 7),
+  );
+
+  // The 4 most recent completed weeks can reach back further than 30 days
+  const earliestWeekStart = new Date(currentWeekStart);
+  earliestWeekStart.setUTCDate(earliestWeekStart.getUTCDate() - 28);
+  const fetchSince = earliestWeekStart < since ? earliestWeekStart : since;
+
+  const [sessions, habitLogs, subjectRows] = await Promise.all([
     db
       .select()
       .from(studySessions)
@@ -54,13 +92,14 @@ export async function GET() {
         and(
           eq(studySessions.userId, user.id),
           isNotNull(studySessions.endedAt),
-          gte(studySessions.startedAt, since),
+          gte(studySessions.startedAt, fetchSince),
         ),
       ),
     db
       .select()
       .from(habits)
-      .where(and(eq(habits.userId, user.id), gte(habits.loggedAt, since))),
+      .where(and(eq(habits.userId, user.id), gte(habits.loggedAt, fetchSince))),
+    db.select().from(subjects).where(eq(subjects.userId, user.id)),
   ]);
 
   // Build per-day map for the last 30 days
@@ -211,15 +250,98 @@ export async function GET() {
       }
     }
     if (bestDay >= 0) {
-      const names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       insights.push({
         id: 'best-day',
         kind: 'pattern',
-        headline: `${names[bestDay]} is your strongest study day`,
-        detail: `You average ${Math.round(bestAvg)} minutes of focused study on ${names[bestDay]}s.`,
+        headline: `${WEEKDAY_NAMES[bestDay]} is your strongest study day`,
+        detail: `You average ${Math.round(bestAvg)} minutes of focused study on ${WEEKDAY_NAMES[bestDay]}s.`,
       });
     }
   }
+
+  // ===== Study minutes by subject (last 30 days, completed sessions) =====
+  const subjectMeta = new Map(subjectRows.map((s) => [s.id, { name: s.name, color: s.color }]));
+  const minutesBySubject = new Map<string | null, number>();
+  for (const session of sessions) {
+    if (!session.endedAt || session.startedAt < since) continue;
+    const minutes = Math.round(
+      (session.endedAt.getTime() - session.startedAt.getTime()) / 60000,
+    );
+    const key = session.subjectId;
+    minutesBySubject.set(key, (minutesBySubject.get(key) ?? 0) + minutes);
+  }
+  const bySubject: SubjectBreakdown[] = Array.from(minutesBySubject.entries())
+    .map(([subjectId, minutes]) => {
+      const meta = subjectId !== null ? subjectMeta.get(subjectId) : undefined;
+      return {
+        subjectId,
+        name: meta?.name ?? 'No subject',
+        color: meta?.color ?? '#A8A29E',
+        minutes,
+      };
+    })
+    .sort((a, b) => b.minutes - a.minutes);
+
+  // ===== Weekly summaries (last 4 completed Mon–Sun weeks, most recent first) =====
+  const weeklySummaries: WeeklySummary[] = [];
+  for (let w = 1; w <= 4; w++) {
+    const weekStart = new Date(currentWeekStart);
+    weekStart.setUTCDate(weekStart.getUTCDate() - 7 * w);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+
+    let studyMinutes = 0;
+    const focusRatings: number[] = [];
+    const minutesByWeekdayInWeek = new Map<number, number>();
+    for (const session of sessions) {
+      if (!session.endedAt) continue;
+      if (session.startedAt < weekStart || session.startedAt >= weekEnd) continue;
+      const minutes = Math.round(
+        (session.endedAt.getTime() - session.startedAt.getTime()) / 60000,
+      );
+      studyMinutes += minutes;
+      const weekday = session.startedAt.getUTCDay();
+      minutesByWeekdayInWeek.set(weekday, (minutesByWeekdayInWeek.get(weekday) ?? 0) + minutes);
+      if (session.focusRating) focusRatings.push(session.focusRating);
+    }
+
+    const habitDayKeys = new Set<string>();
+    for (const log of habitLogs) {
+      if (log.loggedAt >= weekStart && log.loggedAt < weekEnd) {
+        habitDayKeys.add(dayKey(log.loggedAt));
+      }
+    }
+
+    let bestDay: string | null = null;
+    let bestDayMinutes = 0;
+    for (const [weekday, minutes] of minutesByWeekdayInWeek) {
+      if (minutes > bestDayMinutes) {
+        bestDayMinutes = minutes;
+        bestDay = WEEKDAY_NAMES[weekday] ?? null;
+      }
+    }
+
+    const weekFocusAvg = avg(focusRatings);
+    weeklySummaries.push({
+      weekStart: dayKey(weekStart),
+      studyMinutes,
+      habitDays: habitDayKeys.size,
+      avgFocus: weekFocusAvg !== null ? Math.round(weekFocusAvg * 10) / 10 : null,
+      bestDay,
+    });
+  }
+
+  // ===== 4-week averages =====
+  const avgWeeklyMinutes = avg(weeklySummaries.map((s) => s.studyMinutes)) ?? 0;
+  const avgHabitDays = avg(weeklySummaries.map((s) => s.habitDays)) ?? 0;
+  const avgWeeklyFocus = avg(
+    weeklySummaries.filter((s) => s.avgFocus !== null).map((s) => s.avgFocus ?? 0),
+  );
+  const averages = {
+    weeklyMinutes: Math.round(avgWeeklyMinutes),
+    habitDaysPerWeek: Math.round(avgHabitDays * 10) / 10,
+    avgFocus: avgWeeklyFocus !== null ? Math.round(avgWeeklyFocus * 10) / 10 : null,
+  };
 
   // ===== Weekly totals =====
   const last7 = daily.slice(-7);
@@ -243,6 +365,9 @@ export async function GET() {
         habitDays,
         avgFocus: weekFocus !== null ? Math.round(weekFocus * 10) / 10 : null,
       },
+      bySubject,
+      weeklySummaries,
+      averages,
     },
   });
 }
