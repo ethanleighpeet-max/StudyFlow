@@ -23,6 +23,7 @@ import {
   Sun,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+import { MorningCheckin } from './morning-checkin';
 
 interface DashboardStats {
   todayMinutes: number;
@@ -168,6 +169,9 @@ export function DashboardContent({
         </div>
       </motion.div>
 
+      {/* Morning check-in */}
+      <MorningCheckin sleepHours={todayHabits.sleepHours} />
+
       {/* Stats Grid */}
       <motion.div
         variants={item}
@@ -190,7 +194,7 @@ export function DashboardContent({
         <StatCard
           icon={Droplets}
           title="Habits Logged"
-          value={`${stats.habitsToday} / 4`}
+          value={`${stats.habitsToday} / 5`}
           subtitle={stats.habitsToday > 0 ? 'Logged today' : 'Log your first habit'}
           color="accent"
         />

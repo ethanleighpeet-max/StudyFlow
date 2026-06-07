@@ -7,6 +7,8 @@ import {
   real,
   boolean,
   pgEnum,
+  jsonb,
+  date,
 } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
@@ -31,6 +33,7 @@ export const users = pgTable('users', {
   name: text('name').notNull(),
   avatarUrl: text('avatar_url'),
   premiumTier: premiumTierEnum('premium_tier').default('free').notNull(),
+  preferences: jsonb('preferences').$type<Record<string, unknown>>().notNull().default({}),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
@@ -81,6 +84,16 @@ export const habits = pgTable('habits', {
   type: habitTypeEnum('type').notNull(),
   value: real('value').notNull(),
   loggedAt: timestamp('logged_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const reflections = pgTable('reflections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: uuid('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  day: date('day').notNull(),
+  content: text('content').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const goals = pgTable('goals', {
@@ -151,6 +164,7 @@ export const usersRelations = relations(users, ({ many }) => ({
   subjects: many(subjects),
   studySessions: many(studySessions),
   habits: many(habits),
+  reflections: many(reflections),
   goals: many(goals),
   tasks: many(tasks),
   friendshipsInitiated: many(friendships, { relationName: 'initiator' }),
@@ -179,6 +193,10 @@ export const sessionNotesRelations = relations(sessionNotes, ({ one }) => ({
 
 export const habitsRelations = relations(habits, ({ one }) => ({
   user: one(users, { fields: [habits.userId], references: [users.id] }),
+}));
+
+export const reflectionsRelations = relations(reflections, ({ one }) => ({
+  user: one(users, { fields: [reflections.userId], references: [users.id] }),
 }));
 
 export const goalsRelations = relations(goals, ({ one }) => ({
