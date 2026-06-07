@@ -24,11 +24,28 @@ export async function GET(req: NextRequest) {
   const subjectId = searchParams.get('subjectId');
   const dateFrom = searchParams.get('dateFrom');
   const dateTo = searchParams.get('dateTo');
+  const q = searchParams.get('q')?.trim();
 
   const conditions = [eq(studySessions.userId, user.id)];
 
   if (subjectId) {
     conditions.push(eq(studySessions.subjectId, subjectId));
+  }
+  if (q) {
+    // Search across note content, session goal, mood, and subject name
+    const pattern = `%${q.replace(/[%_]/g, '\\$&')}%`;
+    conditions.push(
+      sql`(
+        exists (
+          select 1 from ${sessionNotes}
+          where ${sessionNotes.sessionId} = ${studySessions.id}
+          and ${sessionNotes.content} ilike ${pattern}
+        )
+        or ${studySessions.sessionGoal} ilike ${pattern}
+        or ${studySessions.mood} ilike ${pattern}
+        or ${subjects.name} ilike ${pattern}
+      )`,
+    );
   }
   if (dateFrom) {
     conditions.push(gte(studySessions.startedAt, new Date(dateFrom)));
@@ -63,6 +80,7 @@ export async function GET(req: NextRequest) {
   const countResult = await db
     .select({ count: sql<number>`count(*)::int` })
     .from(studySessions)
+    .leftJoin(subjects, eq(studySessions.subjectId, subjects.id))
     .where(and(...conditions));
   const count = countResult[0]?.count ?? 0;
 
@@ -94,22 +112,3 @@ export async function POST(req: Request) {
     const { timerMode, timerDurationMinutes, subjectId, sessionGoal } = parsed.data;
 
     // Pomodoro defaults to 25 minutes
-    const duration = timerMode === 'pomodoro' ? 25 : timerDurationMinutes ?? null;
-
-    const [session] = await db
-      .insert(studySessions)
-      .values({
-        userId: user.id,
-        subjectId: subjectId ?? null,
-        timerMode,
-        timerDurationMinutes: duration,
-        sessionGoal: sessionGoal ?? null,
-      })
-      .returning();
-
-    return NextResponse.json({ success: true, data: session }, { status: 201 });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Internal server error';
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
-}

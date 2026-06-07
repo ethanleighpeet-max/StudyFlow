@@ -62,27 +62,29 @@ export function SessionHistory() {
   const [searchQuery, setSearchQuery] = useState('');
   const [total, setTotal] = useState(0);
 
+  // Debounced server-side search — also searches inside note content
   useEffect(() => {
-    setLoading(true);
-    fetch('/api/sessions?limit=50')
-      .then((r) => r.json())
-      .then((res) => {
-        if (res.success) {
-          setSessions(res.data);
-          setTotal(res.meta.total);
-        }
-      })
-      .finally(() => setLoading(false));
-  }, []);
+    const handle = setTimeout(
+      () => {
+        setLoading(true);
+        const params = new URLSearchParams({ limit: '50' });
+        if (searchQuery.trim()) params.set('q', searchQuery.trim());
+        fetch(`/api/sessions?${params}`)
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.success) {
+              setSessions(res.data);
+              setTotal(res.meta.total);
+            }
+          })
+          .finally(() => setLoading(false));
+      },
+      searchQuery ? 300 : 0,
+    );
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
 
-  const filtered = searchQuery
-    ? sessions.filter(
-        (s) =>
-          s.subjectName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.sessionGoal?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          s.mood?.toLowerCase().includes(searchQuery.toLowerCase()),
-      )
-    : sessions;
+  const filtered = sessions;
 
   return (
     <motion.div
@@ -114,7 +116,7 @@ export function SessionHistory() {
         <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
         <input
           type="text"
-          placeholder="Search by subject, goal, or mood..."
+          placeholder="Search notes, subjects, goals, or moods..."
           className="w-full rounded-xl border border-surface-200 bg-white py-2.5 pl-10 pr-4 text-sm text-surface-900 outline-none transition-all focus:border-brand-300 focus:ring-2 focus:ring-brand-100"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
@@ -227,11 +229,4 @@ export function SessionHistory() {
                     </div>
                   )}
                 </div>
-              </motion.div>
-            );
-          })}
-        </div>
-      )}
-    </motion.div>
-  );
-}
+     
